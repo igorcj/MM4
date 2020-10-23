@@ -1,30 +1,30 @@
 #!/usr/bin/env python3
+# retira os dados do governo canadense e filtra colunas de interesse agrupando apenas para quebec e ontario
 
-import os
-import wget
-import pandas as pd
-
-url = 'https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv'
+import wget, os, pandas as pd
+url = "https://health-infobase.canada.ca/src/data/covidLive/covid19-download.csv"
 filename = wget.download(url)
+print()
 
 df = pd.read_csv(filename)
-
 os.remove(filename)
 
-print("\n" + filename)
-
-df = df[df["location"] == "Canada"]
-df = df[["date", "new_cases", "new_deaths"]]
+df.query('prname in ["Ontario","Quebec"]', inplace=True)
+df.drop(columns=['pruid', 'prname', 'prnameFR', 'numconf', 'numprob', 'numdeaths', 'numtotal', 'numtested',
+       'percentrecover', 'ratetested', 'numtoday', 'percentoday',
+       'ratetotal', 'ratedeaths', 'numdeathstoday', 'percentdeath',
+       'numtestedtoday', 'numrecoveredtoday', 'percentactive', 'numactive',
+       'rateactive', 'numtotal_last14', 'ratetotal_last14', 'numdeaths_last14',
+       'ratedeaths_last14', 'avgincidence_last7','avgratedeaths_last7'], inplace=True)
 df["date"] = pd.to_datetime(df["date"])
-cases=[0,0,0,0,0,0,0]
-deaths=[0,0,0,0,0,0,0]
+df.sort_values(by=['date'],inplace=True)
 
-for index, row in df.tail(len(df)-7).iterrows():
-    cases.append(sum(df.loc[(index-7):(index-1),'new_cases'])/7)
-    deaths.append(sum(df.loc[(index-7):(index-1),'new_deaths'])/7)
+date=df['date'].unique()
+avg7=[df.loc[df['date'] == day, 'avgtotal_last7'].sum() for day in date]
+dead7=[df.loc[df['date'] == day, 'avgdeaths_last7'].sum() for day in date]
+recover=[df.loc[df['date'] == day, 'numrecover'].sum() for day in date]
 
-df['new_cases_normalized']=cases
-df['new_deaths_normalized']=deaths
+df=pd.DataFrame({'date':date,'cases_normalized':avg7,'deaths_normalized':dead7,'recovers':recover})
+df.set_index('date', drop=True, inplace=True)
 
-df.set_index("date",inplace=True)
-df.to_pickle('canada_data.pkl') 
+df.to_pickle('canada_data.pkl')
